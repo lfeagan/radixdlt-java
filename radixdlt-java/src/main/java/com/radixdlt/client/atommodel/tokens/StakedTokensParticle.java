@@ -23,126 +23,93 @@
 package com.radixdlt.client.atommodel.tokens;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.radixdlt.identifiers.RadixAddress;
-import com.radixdlt.client.core.atoms.particles.Particle;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 import com.google.common.collect.ImmutableMap;
+import com.radixdlt.client.atommodel.Accountable;
+import com.radixdlt.client.atommodel.Ownable;
+import com.radixdlt.client.atommodel.tokens.MutableSupplyTokenDefinitionParticle.TokenTransition;
+import com.radixdlt.client.core.atoms.particles.Particle;
+import com.radixdlt.identifiers.RRI;
+import com.radixdlt.identifiers.RadixAddress;
 import com.radixdlt.serialization.DsonOutput;
 import com.radixdlt.serialization.DsonOutput.Output;
 import com.radixdlt.serialization.SerializerId2;
 import com.radixdlt.utils.UInt256;
 
-import com.radixdlt.client.atommodel.Identifiable;
-import com.radixdlt.client.atommodel.Ownable;
-import com.radixdlt.identifiers.RRI;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-@SerializerId2("radix.particles.mutable_supply_token_definition")
-public class MutableSupplyTokenDefinitionParticle extends Particle implements Identifiable, Ownable {
-	public enum TokenTransition {
-		MINT,
-		BURN
-	}
-
-	@JsonProperty("rri")
+/**
+ *  A particle which represents an amount of staked fungible tokens
+ *  owned by some key owner, stored in an account and staked to a delegate address.
+ */
+@SerializerId2("radix.particles.staked_tokens")
+public final class StakedTokensParticle extends Particle implements Accountable, Ownable {
+	@JsonProperty("delegateAddress")
 	@DsonOutput(Output.ALL)
-	private RRI rri;
+	private RadixAddress delegateAddress;
 
-	@JsonProperty("name")
+	@JsonProperty("address")
 	@DsonOutput(Output.ALL)
-	private String name;
+	private RadixAddress address;
 
-	@JsonProperty("description")
+	@JsonProperty("tokenDefinitionReference")
 	@DsonOutput(Output.ALL)
-	private String description;
+	private RRI tokenDefinitionReference;
 
 	@JsonProperty("granularity")
 	@DsonOutput(Output.ALL)
 	private UInt256 granularity;
 
-	@JsonProperty("iconUrl")
+	@JsonProperty("planck")
 	@DsonOutput(Output.ALL)
-	private String iconUrl;
+	private long planck;
 
-	@JsonProperty("url")
+	@JsonProperty("nonce")
 	@DsonOutput(Output.ALL)
-	private String url;
+	private long nonce;
+
+	@JsonProperty("amount")
+	@DsonOutput(Output.ALL)
+	private UInt256 amount;
 
 	private Map<TokenTransition, TokenPermission> tokenPermissions;
 
-	MutableSupplyTokenDefinitionParticle() {
-		// Empty constructor for serializer
+	protected StakedTokensParticle() {
+		this.tokenPermissions = ImmutableMap.of();
 	}
 
-	public MutableSupplyTokenDefinitionParticle(
+	public StakedTokensParticle(
+		RadixAddress delegateAddress, UInt256 amount,
+		UInt256 granularity,
 		RadixAddress address,
-		String name,
-		String symbol,
-		String description,
-		UInt256 granularity,
-		Map<TokenTransition, TokenPermission> tokenPermissions,
-		String iconUrl,
-		String url
+		long nonce,
+		RRI tokenDefinitionReference,
+		long planck,
+		Map<TokenTransition, TokenPermission> tokenPermissions
 	) {
-		this(RRI.of(address, symbol), name, description, granularity, tokenPermissions, iconUrl, url);
-	}
+		super(address.euid());
 
-	public MutableSupplyTokenDefinitionParticle(
-		RRI rri,
-		String name,
-		String description,
-		UInt256 granularity,
-		Map<TokenTransition, TokenPermission> tokenPermissions,
-		String iconUrl,
-		String url
-	) {
-		super(rri.getAddress().euid());
-		this.rri = rri;
-		this.name = name;
-		this.description = description;
+		// Redundant null check added for completeness
+		Objects.requireNonNull(amount, "amount is required");
+		if (amount.isZero()) {
+			throw new IllegalArgumentException("Amount is zero");
+		}
+
+		this.delegateAddress = delegateAddress;
+		this.address = address;
+		this.tokenDefinitionReference = tokenDefinitionReference;
 		this.granularity = granularity;
+		this.planck = planck;
+		this.nonce = nonce;
+		this.amount = amount;
 		this.tokenPermissions = ImmutableMap.copyOf(tokenPermissions);
-		this.iconUrl = iconUrl;
-		this.url = url;
-	}
-
-	@Override
-	public RRI getRRI() {
-		return this.rri;
 	}
 
 	public Map<TokenTransition, TokenPermission> getTokenPermissions() {
 		return tokenPermissions;
-	}
-
-	@Override
-	public RadixAddress getAddress() {
-		return this.rri.getAddress();
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public String getSymbol() {
-		return this.rri.getName();
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public UInt256 getGranularity() {
-		return this.granularity;
-	}
-
-	public String getIconUrl() {
-		return this.iconUrl;
-	}
-
-	public String getUrl() {
-		return url;
 	}
 
 	@JsonProperty("permissions")
@@ -165,13 +132,42 @@ public class MutableSupplyTokenDefinitionParticle extends Particle implements Id
 	}
 
 	@Override
+	public Set<RadixAddress> getAddresses() {
+		return Collections.singleton(this.address);
+	}
+
+	@Override
+	public RadixAddress getAddress() {
+		return this.address;
+	}
+
+	public RadixAddress getDelegateAddress() {
+		return delegateAddress;
+	}
+
+	public long getNonce() {
+		return this.nonce;
+	}
+
+	public RRI getTokenDefinitionReference() {
+		return RRI.of(tokenDefinitionReference.getAddress(), tokenDefinitionReference.getName());
+	}
+
+	public UInt256 getAmount() {
+		return this.amount;
+	}
+
+	public UInt256 getGranularity() {
+		return this.granularity;
+	}
+
+	public long getPlanck() {
+		return this.planck;
+	}
+
+	@Override
 	public String toString() {
-		String tokenPermissionsStr = (tokenPermissions == null)
-			? "null"
-			: tokenPermissions.entrySet().stream().map(e -> String.format("%s:%s", e.getKey().toString().toLowerCase(),
-				e.getValue().toString().toLowerCase())).collect(Collectors.joining(","));
-		return String.format("%s[%s (%s:%s), (%s:%s)]", getClass().getSimpleName(),
-			String.valueOf(this.rri), name, description,
-			String.valueOf(granularity), tokenPermissionsStr);
+		return String.format("%s[%s:%s:%s:%s:%s:%s:%s]", getClass().getSimpleName(), tokenDefinitionReference, amount,
+			granularity, address, delegateAddress, planck, nonce);
 	}
 }
